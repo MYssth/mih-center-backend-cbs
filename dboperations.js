@@ -51,6 +51,26 @@ async function getAllPSNData() {
 
 }
 
+async function sendLineNotify(sendMessage) {
+    console.log("send line notify");
+    fetch(process.env.lineNotify, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Bearer ${process.env.CBS_lineToken}`,
+        },
+        body: new URLSearchParams(sendMessage)
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            console.log(data);
+            console.log("send data to line complete");
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+}
+
 async function carBook(bookData) {
     try {
         console.log("carBook call by " + bookData.req_pid + " try connect to server");
@@ -62,7 +82,7 @@ async function carBook(bookData) {
         console.log("new sched id = " + schedId);
 
         console.log(bookData);
-        console.log(bookData.drv_pid !== 0 ? bookData.drv_pid : "0");
+        // console.log(bookData.drv_pid !== 0 ? bookData.drv_pid : "0");
 
         await pool.request()
             .input("id", sql.VarChar, schedId)
@@ -81,6 +101,51 @@ async function carBook(bookData) {
             .query("INSERT INTO cbs_sched" +
                 " (id, from_date, to_date, place, province, pax_amt, tel_no, detail, req_pid, drv_pid, car_type_id, dept_id, req_date, car_id, status_id)" +
                 " VALUES (@id, @from_date, @to_date, @place, @province, @pax_amt, @tel_no, @detail, @req_pid, @drv_pid, @car_type_id, @dept_id, GETDATE(), @car_id, 1)");
+
+        let dateToShow = `${new Date(bookData.from_date)
+            .toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: "UTC",
+            })} ${new Date(bookData.from_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+
+        if (new Date(bookData.from_date).toUTCString().slice(0, -13) === new Date(bookData.to_date).toUTCString().slice(0, -13)) {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+        }
+        else {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: "UTC",
+                })} ${new Date(bookData.to_date)
+                    .toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: "UTC",
+                    })}น.`;
+        }
+
+        sendLineNotify({
+            "message": "มีการขอใช้รถใหม่" +
+                "\nเลขที่: " + schedId +
+                "\nผู้ขอ: " + bookData.req_name +
+                "\nแผนก: " + bookData.dept_name +
+                "\nสถานที่: " + bookData.place +
+                "\nเวลาเดินทาง: " + dateToShow
+        });
 
         console.log("carBook complete");
         console.log("====================");
@@ -176,7 +241,159 @@ async function permitBook(bookData) {
                 ", status_id = 3" +
                 " WHERE id = @id");
 
+        let dateToShow = `${new Date(bookData.from_date)
+            .toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: "UTC",
+            })} ${new Date(bookData.from_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+
+        if (new Date(bookData.from_date).toUTCString().slice(0, -13) === new Date(bookData.to_date).toUTCString().slice(0, -13)) {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+        }
+        else {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: "UTC",
+                })} ${new Date(bookData.to_date)
+                    .toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: "UTC",
+                    })}น.`;
+        }
+
+        sendLineNotify({
+            "message": "มีการอนุมัติงาน" +
+                "\nเลขที่: " + bookData.id +
+                "\nพนักงานขับรถ: " + bookData.drv_name +
+                "\nรถที่ขอใช้: " + bookData.car_name +
+                "\nสถานที่: " + bookData.place +
+                "\nจังหวัด: " + bookData.province +
+                "\nเวลาเดินทาง: " + dateToShow +
+                "\nผู้โดยสาร: " + bookData.pax_amt + " คน" +
+                "\nผู้ขอ: " + bookData.req_name +
+                "\nแผนก: " + bookData.dept_name +
+                "\nเบอร์โทรติดต่อ: " + (bookData.tel_no ? bookData.tel_no : "ไม่ได้ระบุ") +
+                "\nรายละเอียด: " + bookData.detail
+        });
+
         console.log("permitBook complete");
+        console.log("====================");
+        return { "status": "ok" };
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function bypassBook(bookData) {
+    try {
+        console.log("bypassBook call by " + bookData.permit_pid + " try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+
+        await pool.request()
+            .input("id", sql.VarChar, bookData.id)
+            .input("from_date", sql.SmallDateTime, bookData.from_date)
+            .input("to_date", sql.SmallDateTime, bookData.to_date)
+            .input("place", sql.VarChar, bookData.place)
+            .input("province", sql.VarChar, bookData.province)
+            .input("pax_amt", sql.TinyInt, bookData.pax_amt ? bookData.pax_amt : 0)
+            .input("tel_no", sql.VarChar, bookData.tel_no ? bookData.tel_no : "")
+            .input("detail", sql.Text, bookData.detail)
+            .input("permit_pid", sql.VarChar, bookData.permit_pid)
+            .input("drv_pid", sql.VarChar, bookData.drv_pid)
+            .input("car_type_id", sql.TinyInt, bookData.car_type_id)
+            .input("car_id", sql.TinyInt, bookData.car_id)
+            .input("dept_id", sql.VarChar, bookData.dept_id)
+            .input("rcv_pid", sql.VarChar, bookData.rcv_pid)
+            .query("UPDATE cbs_sched" +
+                " SET from_date = @from_date" +
+                ", to_date = @to_date" +
+                ", place = @place" +
+                ", province = @province" +
+                ", pax_amt = @pax_amt" +
+                ", tel_no = @tel_no" +
+                ", detail = @detail" +
+                ", permit_pid = @permit_pid" +
+                ", drv_pid = @drv_pid" +
+                ", car_type_id = @car_type_id" +
+                ", car_id = @car_id" +
+                ", dept_id = @dept_id" +
+                ", permit_date = GETDATE()" +
+                ", status_id = 3" +
+                ", rcv_pid = @rcv_pid" +
+                ", rcv_date = GETDATE()" +
+                " WHERE id = @id");
+
+        let dateToShow = `${new Date(bookData.from_date)
+            .toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: "UTC",
+            })} ${new Date(bookData.from_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+
+        if (new Date(bookData.from_date).toUTCString().slice(0, -13) === new Date(bookData.to_date).toUTCString().slice(0, -13)) {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: "UTC",
+                })}น.`;
+        }
+        else {
+            dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+                .toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: "UTC",
+                })} ${new Date(bookData.to_date)
+                    .toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: "UTC",
+                    })}น.`;
+        }
+
+        sendLineNotify({
+            "message": "มีการอนุมัติงาน" +
+                "\nเลขที่: " + bookData.id +
+                "\nพนักงานขับรถ: " + bookData.drv_name +
+                "\nรถที่ขอใช้: " + bookData.car_name +
+                "\nสถานที่: " + bookData.place +
+                "\nจังหวัด: " + bookData.province +
+                "\nเวลาเดินทาง: " + dateToShow +
+                "\nผู้โดยสาร: " + bookData.pax_amt + " คน" +
+                "\nผู้ขอ: " + bookData.req_name +
+                "\nแผนก: " + bookData.dept_name +
+                "\nเบอร์โทรติดต่อ: " + (bookData.tel_no ? bookData.tel_no : "ไม่ได้ระบุ") +
+                "\nรายละเอียด: " + bookData.detail
+        });
+
+        console.log("bypassBook complete");
         console.log("====================");
         return { "status": "ok" };
     }
@@ -367,10 +584,17 @@ async function getDriver() {
         const psnList = await getAllPSNData();
 
         let result = [];
-        result.push({
-            id: 0,
-            name: "ไม่ระบุ",
-        });
+        result.push(
+            {
+                id: "0",
+                name: "ไม่ระบุ",
+            },
+            {
+                id: "1",
+                name: "ขับเอง",
+            },
+        );
+
         for (let i = 0; i < drvList.length; i += 1) {
             const prename = psnList.find(o => o.psn_id === drvList[i].personnel_id).pname;
             const name = psnList.find(o => o.psn_id === drvList[i].personnel_id).fname;
@@ -398,6 +622,9 @@ async function addPSNName(result) {
         for (let n = 0; n < result.length; n += 1) {
             if (result[n].drv_pid === "0") {
                 await Object.assign(result[n], { "drv_name": "ไม่ระบุ" });
+            }
+            if(result[n].drv_pid === "1"){
+                await Object.assign(result[n], { "drv_name": "ขับเอง" });
             }
             if (psnList[i].psn_id === result[n].req_pid) {
                 await Object.assign(result[n], { "req_name": psnList[i].pname + "" + psnList[i].fname + " " + psnList[i].lname });
@@ -498,8 +725,8 @@ async function getSchedByReqId(req_pid) {
     }
 }
 
-async function getSchedByDeptId(view_id, dept_id){
-    try{
+async function getSchedByDeptId(view_id, dept_id) {
+    try {
 
         console.log("getSchedByDeptId try connect to server");
         let pool = await sql.connect(config);
@@ -507,33 +734,33 @@ async function getSchedByDeptId(view_id, dept_id){
 
         // temporary use wait to migrate to hims database
         const himsPsnDept = await fetch(`http://${process.env.backendHost}:${process.env.himsPort}/api/hims/getpsndatabyid/${dept_id}`)
-        .then((response) => response.json())
-        .then((data) => {
-            return data.dept_id;
-        })
-        .catch((error) => {
-            if (error.name === "AbortError") {
-                console.log("cancelled");
-            }
-            else {
-                console.error('Error:', error);
-            }
-        });
+            .then((response) => response.json())
+            .then((data) => {
+                return data.dept_id;
+            })
+            .catch((error) => {
+                if (error.name === "AbortError") {
+                    console.log("cancelled");
+                }
+                else {
+                    console.error('Error:', error);
+                }
+            });
         let limitChk = himsPsnDept;
         // end of temporary code
 
         // let limitChk = dept_id;
-        if(view_id === "MGR"){
+        if (view_id === "MGR") {
             limitChk = limitChk.slice(0, 3);
         }
-        else if(view_id === "HMGR"){
+        else if (view_id === "HMGR") {
             limitChk = limitChk.slice(0, 1);
         }
-        else if(view_id === "ALL"){
+        else if (view_id === "ALL") {
             limitChk = "";
         }
 
-        const schedData = await pool.request().query(schedQueryText + " WHERE cbs_sched.dept_id LIKE '"+limitChk+"%' ORDER BY cbs_sched.id DESC");
+        const schedData = await pool.request().query(schedQueryText + " WHERE cbs_sched.dept_id LIKE '" + limitChk + "%' ORDER BY cbs_sched.id DESC");
         let result = await addPSNName(schedData.recordsets[0]);
         result = await addDeptName(result);
 
@@ -606,6 +833,28 @@ async function getDrvSched() {
     }
 }
 
+async function getUsrDrvSched(pid){
+    try {
+        console.log("getUsrDrvSched call with pid = "+pid+", try connect to server");
+        let pool = await sql.connect(config);
+        console.log("connect complete");
+        const schedData = await pool.request()
+        .input("req_pid", sql.VarChar, pid)
+        .query(schedQueryText + "WHERE cbs_sched.status_id = 3 AND cbs_sched.req_pid = @req_pid" +
+            " AND ( dep_date IS NULL OR dep_mi IS NULL OR arr_date IS NULL OR arr_mi IS NULL )" +
+            " ORDER BY cbs_sched.id DESC");
+        let result = await addPSNName(schedData.recordsets[0]);
+        result = await addDeptName(result);
+        console.log("getUsrDrvSched complete");
+        console.log("====================");
+        return result;
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
 async function getStatCntr() {
     try {
         console.log("getStatCntr call try connect to server");
@@ -639,6 +888,7 @@ module.exports = {
     reqPermit: reqPermit,
     denyBook: denyBook,
     permitBook: permitBook,
+    bypassBook: bypassBook,
     useRecBook: useRecBook,
     getCarType: getCarType,
     getFilteredCar: getFilteredCar,
@@ -651,5 +901,6 @@ module.exports = {
     getPermitReqSched: getPermitReqSched,
     getPermitSched: getPermitSched,
     getDrvSched: getDrvSched,
+    getUsrDrvSched: getUsrDrvSched,
     getStatCntr: getStatCntr,
 }

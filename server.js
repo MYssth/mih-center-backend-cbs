@@ -74,6 +74,18 @@ router.route('/permitbook').post((request, response) => {
 
 });
 
+router.route('/bypassbook').post((request, response) => {
+
+    let bookData = { ...request.body };
+    dboperations.bypassBook(bookData).then(result => {
+        response.status(201).json(result);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+
+});
+
 router.route('/userecbook').post((request, response) => {
 
     let bookData = { ...request.body };
@@ -199,6 +211,17 @@ router.route('/getpermitsched').get((request, response) => {
 router.route('/getdrvsched').get((request, response) => {
 
     dboperations.getDrvSched().then(result => {
+        response.json(result);
+    }).catch(err => {
+        console.error(err);
+        response.sendStatus(500);
+    });
+
+});
+
+router.route('/getusrdrvsched/:pid').get((request, response) => {
+
+    dboperations.getUsrDrvSched(request.params.pid).then(result => {
         response.json(result);
     }).catch(err => {
         console.error(err);
