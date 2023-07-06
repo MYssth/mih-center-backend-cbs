@@ -241,6 +241,17 @@ router.route('/getstatcntr').get((request, response) => {
 
 });
 
+router.route('/getversion').get((request, response) => {
+
+    dboperations.getVersion().then(result => {
+        response.json(result);
+    }).catch(err => {
+        console.error(err);
+        response.setStatus(500);
+    });
+
+});
+
 var port = process.env.PORT;
 app.listen(port);
 console.log('CBS API is running at ' + port);

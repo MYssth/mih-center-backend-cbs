@@ -81,7 +81,7 @@ async function carBook(bookData) {
         const schedId = await genNewSchedId();
         console.log("new sched id = " + schedId);
 
-        console.log(bookData);
+        // console.log(bookData);
         // console.log(bookData.drv_pid !== 0 ? bookData.drv_pid : "0");
 
         await pool.request()
@@ -144,7 +144,8 @@ async function carBook(bookData) {
                 "\nผู้ขอ: " + bookData.req_name +
                 "\nแผนก: " + bookData.dept_name +
                 "\nสถานที่: " + bookData.place +
-                "\nเวลาเดินทาง: " + dateToShow
+                "\nเวลาเดินทาง: " + dateToShow +
+                "\nรายละเอียด: " + bookData.detail
         });
 
         console.log("carBook complete");
@@ -193,6 +194,52 @@ async function reqPermit(bookData) {
                 ", rcv_date = GETDATE()" +
                 ", status_id = 2" +
                 " WHERE id = @id");
+
+        // let dateToShow = `${new Date(bookData.from_date)
+        //     .toLocaleDateString('th-TH', {
+        //         year: 'numeric',
+        //         month: 'long',
+        //         day: 'numeric',
+        //         timeZone: "UTC",
+        //     })} ${new Date(bookData.from_date)
+        //         .toLocaleTimeString('th-TH', {
+        //             hour: '2-digit',
+        //             minute: '2-digit',
+        //             timeZone: "UTC",
+        //         })}น.`;
+
+        // if (new Date(bookData.from_date).toUTCString().slice(0, -13) === new Date(bookData.to_date).toUTCString().slice(0, -13)) {
+        //     dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+        //         .toLocaleTimeString('th-TH', {
+        //             hour: '2-digit',
+        //             minute: '2-digit',
+        //             timeZone: "UTC",
+        //         })}น.`;
+        // }
+        // else {
+        //     dateToShow = dateToShow + ` - ${new Date(bookData.to_date)
+        //         .toLocaleDateString('th-TH', {
+        //             year: 'numeric',
+        //             month: 'long',
+        //             day: 'numeric',
+        //             timeZone: "UTC",
+        //         })} ${new Date(bookData.to_date)
+        //             .toLocaleTimeString('th-TH', {
+        //                 hour: '2-digit',
+        //                 minute: '2-digit',
+        //                 timeZone: "UTC",
+        //             })}น.`;
+        // }
+
+        // sendLineNotify({
+        //     "message": "มีงานขออนุมัติใช้รถ" +
+        //         "\nเลขที่: " + schedId +
+        //         "\nผู้ขออนุมัติ: " + bookData.rcv_name +
+        //         "\nแผนก: " + bookData.dept_name +
+        //         "\nสถานที่: " + bookData.place +
+        //         "\nเวลาเดินทาง: " + dateToShow +
+        //         "\nรายละเอียด: " + bookData.detail
+        // });
 
         console.log("reqPermit complete");
         console.log("====================");
@@ -442,7 +489,10 @@ async function useRecBook(bookData) {
             ", dep_mi = @dep_mi" +
             ", arr_date = @arr_date" +
             ", arr_mi = @arr_mi" +
-            ", rec_date = GETDATE()";
+            ", rec_date = GETDATE()" +
+            ", car_type_id = @car_type_id" +
+            ", car_id = @car_id" +
+            ", drv_pid = @drv_pid";
 
         if (bookData.dep_mi && bookData.arr_mi) {
             qryText += ", status_id = 4"
@@ -455,6 +505,9 @@ async function useRecBook(bookData) {
             .input("dep_mi", sql.Int, bookData.dep_mi)
             .input("arr_date", sql.SmallDateTime, bookData.arr_date)
             .input("arr_mi", sql.Int, bookData.arr_mi)
+            .input("car_type_id", sql.TinyInt, bookData.car_type_id)
+            .input("car_id", sql.TinyInt, bookData.car_id)
+            .input("drv_pid", sql.VarChar, bookData.drv_pid)
             .query(qryText + " WHERE id = @id");
 
         console.log("useRecBook complete");
@@ -591,7 +644,7 @@ async function getDriver() {
             },
             {
                 id: "1",
-                name: "ขับเอง",
+                name: "ผู้ขอใช้ขับเอง",
             },
         );
 
@@ -623,7 +676,7 @@ async function addPSNName(result) {
             if (result[n].drv_pid === "0") {
                 await Object.assign(result[n], { "drv_name": "ไม่ระบุ" });
             }
-            if(result[n].drv_pid === "1"){
+            if (result[n].drv_pid === "1") {
                 await Object.assign(result[n], { "drv_name": "ขับเอง" });
             }
             if (psnList[i].psn_id === result[n].req_pid) {
@@ -833,16 +886,16 @@ async function getDrvSched() {
     }
 }
 
-async function getUsrDrvSched(pid){
+async function getUsrDrvSched(pid) {
     try {
-        console.log("getUsrDrvSched call with pid = "+pid+", try connect to server");
+        console.log("getUsrDrvSched call with pid = " + pid + ", try connect to server");
         let pool = await sql.connect(config);
         console.log("connect complete");
         const schedData = await pool.request()
-        .input("req_pid", sql.VarChar, pid)
-        .query(schedQueryText + "WHERE cbs_sched.status_id = 3 AND cbs_sched.req_pid = @req_pid" +
-            " AND ( dep_date IS NULL OR dep_mi IS NULL OR arr_date IS NULL OR arr_mi IS NULL )" +
-            " ORDER BY cbs_sched.id DESC");
+            .input("req_pid", sql.VarChar, pid)
+            .query(schedQueryText + "WHERE cbs_sched.status_id = 3 AND cbs_sched.req_pid = @req_pid" +
+                " AND ( dep_date IS NULL OR dep_mi IS NULL OR arr_date IS NULL OR arr_mi IS NULL )" +
+                " ORDER BY cbs_sched.id DESC");
         let result = await addPSNName(schedData.recordsets[0]);
         result = await addDeptName(result);
         console.log("getUsrDrvSched complete");
@@ -864,8 +917,8 @@ async function getStatCntr() {
             "SELECT COUNT(CASE WHEN status_id = 1 then 1 END) AS 'request'" +
             ", COUNT(CASE WHEN status_id = 2 then 1 END) AS 'permitRep'" +
             ", COUNT(CASE WHEN status_id = 3 then 1 END) AS 'permit'" +
-            " FROM cbs_sched" +
-            " WHERE to_date > GETDATE()"
+            " FROM cbs_sched"
+            // " WHERE from_date >= GETDATE()"
         );
         let result = taskCntr.recordset[0];
         const carCntr = await pool.request().query(
@@ -876,6 +929,18 @@ async function getStatCntr() {
         console.log("getStatCntr complete");
         console.log("====================");
         return result;
+    }
+    catch (error) {
+        console.error(error);
+        return { "status": "error", "message": error.message };
+    }
+}
+
+async function getVersion() {
+    try {
+
+        return process.env.version;
+
     }
     catch (error) {
         console.error(error);
@@ -903,4 +968,5 @@ module.exports = {
     getDrvSched: getDrvSched,
     getUsrDrvSched: getUsrDrvSched,
     getStatCntr: getStatCntr,
+    getVersion: getVersion,
 }
