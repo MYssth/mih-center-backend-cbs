@@ -1,13 +1,7 @@
-var host = 'localhost';
-
-if (process.env.NODE_ENV === 'production') {
-    host = process.env.prodHost;
-}
-
 const config = {
     user: process.env.hostUser,
     password: process.env.hostPass,
-    server: host,
+    server: process.env.prodHost,
     database: process.env.hostDB,
     options: {
         encrypt: false,
