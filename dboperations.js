@@ -50,7 +50,7 @@ async function genNewSchedGrpId() {
 async function getAllPSNData() {
   console.log("let getAllPSNData");
   const result = await fetch(
-    `http://${process.env.backendHost}:${process.env.himsPort}/api/hims/getallpsndata`
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getallpsndata`
   )
     .then((response) => response.json())
     .then((data) => {
@@ -985,7 +985,7 @@ async function getCarType() {
 async function getAllDept() {
   console.log("let getAllDept");
   const result = await fetch(
-    `http://${process.env.backendHost}:${process.env.himsPort}/api/hims/getalldept`
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getalldept`
   )
     .then((response) => response.json())
     .then((data) => {
@@ -1328,7 +1328,7 @@ async function getSchedByDeptId(view_id, id) {
 
     // temporary use wait to migrate to hims database
     let himsPsnDept = await fetch(
-      `http://${process.env.backendHost}:${process.env.himsPort}/api/hims/getpsndatabyid/${id}`
+      `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getpsndatabyid/${id}`
     )
       .then((response) => response.json())
       .then((data) => {
