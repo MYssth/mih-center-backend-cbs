@@ -50,7 +50,7 @@ async function genNewSchedGrpId() {
 async function getAllPSNData() {
   console.log("let getAllPSNData");
   const result = await fetch(
-    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getallpsndata`
+    `http://${process.env.backendHost}:${process.env.himsPort}/api/himspsn/getallpsn`
   )
     .then((response) => response.json())
     .then((data) => {
@@ -1091,7 +1091,7 @@ async function getDriver() {
     const temp = await pool
       .request()
       .query(
-        "SELECT personnel_level_list.personnel_id FROM personnel_level_list WHERE level_id = 'CBS_DRV'"
+        "SELECT psn_lv_list.psn_id FROM psn_lv_list WHERE lv_id = 'CBS_DRV'"
       );
     const drvList = temp.recordsets[0];
 
@@ -1108,19 +1108,18 @@ async function getDriver() {
         name: "ผู้ขอใช้ขับเอง",
       }
     );
-
     for (let i = 0; i < drvList.length; i += 1) {
       const prename = psnList.find(
-        (o) => o.psn_id === drvList[i].personnel_id
+        (o) => o.psn_id === drvList[i].psn_id
       ).pname;
       const name = psnList.find(
-        (o) => o.psn_id === drvList[i].personnel_id
+        (o) => o.psn_id === drvList[i].psn_id
       ).fname;
       const surname = psnList.find(
-        (o) => o.psn_id === drvList[i].personnel_id
+        (o) => o.psn_id === drvList[i].psn_id
       ).lname;
       result.push({
-        id: drvList[i].personnel_id,
+        id: drvList[i].psn_id,
         name: prename + "" + name + " " + surname,
       });
     }
