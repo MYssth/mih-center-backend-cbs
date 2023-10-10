@@ -409,6 +409,18 @@ router.route("/getcalendarcntr").get((request, response) => {
     });
 });
 
+router.route("/getnoti").get((request, response) => {
+  dboperations
+    .getNoti()
+    .then((result) => {
+      response.json(result);
+    })
+    .catch((err) => {
+      console.error(err);
+      response.setStatus(500);
+    });
+});
+
 router.route("/getversion").get((request, response) => {
   dboperations
     .getVersion()

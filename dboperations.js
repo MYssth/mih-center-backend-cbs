@@ -1109,15 +1109,9 @@ async function getDriver() {
       }
     );
     for (let i = 0; i < drvList.length; i += 1) {
-      const prename = psnList.find(
-        (o) => o.psn_id === drvList[i].psn_id
-      ).pname;
-      const name = psnList.find(
-        (o) => o.psn_id === drvList[i].psn_id
-      ).fname;
-      const surname = psnList.find(
-        (o) => o.psn_id === drvList[i].psn_id
-      ).lname;
+      const prename = psnList.find((o) => o.psn_id === drvList[i].psn_id).pname;
+      const name = psnList.find((o) => o.psn_id === drvList[i].psn_id).fname;
+      const surname = psnList.find((o) => o.psn_id === drvList[i].psn_id).lname;
       result.push({
         id: drvList[i].psn_id,
         name: prename + "" + name + " " + surname,
@@ -1209,7 +1203,10 @@ async function addDeptName(result) {
   for (let i = 0; i < deptList.length; i += 1) {
     for (let n = 0; n < result.length; n += 1) {
       if (deptList[i].dept_id === result[n].dept_id) {
-        await Object.assign(result[n], { dept_name: deptList[i].dept_name });
+        await Object.assign(result[n], {
+          dept_name: deptList[i].dept_name,
+          fac_name: deptList[i].fac_name,
+        });
       }
     }
   }
@@ -1633,6 +1630,35 @@ async function getCalendarCntr() {
   }
 }
 
+async function getNoti() {
+  try {
+    console.log("getNoti call try connect to server");
+    let pool = await sql.connect(config);
+    console.log("connect complete");
+    let result = {};
+    let temp = "";
+
+    temp = await pool
+      .request()
+      .query("SELECT COUNT(id) AS permitReq FROM cbs_sched WHERE status_id = 1");
+    await Object.assign(result, temp.recordset[0]);
+    temp = await pool
+      .request()
+      .query("SELECT COUNT(id) AS permit FROM cbs_sched WHERE status_id = 2");
+    await Object.assign(result, temp.recordset[0]);
+    temp = await pool
+      .request()
+      .query("SELECT COUNT(id) AS useRec FROM cbs_sched WHERE status_id = 3");
+    await Object.assign(result, temp.recordset[0]);
+    console.log("getNoti complete");
+    console.log("====================");
+    return result;
+  } catch (error) {
+    console.error(error);
+    return { status: "error", message: error.message };
+  }
+}
+
 async function getVersion() {
   try {
     return process.env.version;
@@ -1673,5 +1699,6 @@ module.exports = {
   getUsrDrvSched: getUsrDrvSched,
   getStatCntr: getStatCntr,
   getCalendarCntr: getCalendarCntr,
+  getNoti: getNoti,
   getVersion: getVersion,
 };
