@@ -162,10 +162,11 @@ async function carBook(bookData) {
       .input("car_type_id", sql.TinyInt, bookData.car_type_id ?? 0)
       .input("car_id", sql.TinyInt, bookData.car_id ?? 0)
       .input("dept_id", sql.VarChar, bookData.dept_id)
+      .input("note", sql.VarChar, bookData.note)
       .query(
         "INSERT INTO cbs_sched" +
-          " (id, from_date, to_date, place, province, pax_amt, tel_no, detail, req_pid, drv_pid, car_type_id, dept_id, req_date, car_id, status_id)" +
-          " VALUES (@id, @from_date, @to_date, @place, @province, @pax_amt, @tel_no, @detail, @req_pid, @drv_pid, @car_type_id, @dept_id, GETDATE(), @car_id, 1)"
+          " (id, from_date, to_date, place, province, pax_amt, tel_no, detail, req_pid, drv_pid, car_type_id, dept_id, req_date, car_id, status_id, note)" +
+          " VALUES (@id, @from_date, @to_date, @place, @province, @pax_amt, @tel_no, @detail, @req_pid, @drv_pid, @car_type_id, @dept_id, GETDATE(), @car_id, 1, @note)"
       );
 
     let dateToShow = await createDateToShow(
@@ -721,8 +722,8 @@ async function denyBook(bookData) {
       .input("note", sql.Text, bookData.note)
       .query(
         "UPDATE cbs_sched" +
-          " SET permit_pid = @permit_pid" +
-          ", permit_date = GETDATE()" +
+          " SET proc_pid = @permit_pid" +
+          ", proc_date = GETDATE()" +
           ", note = @note" +
           ", status_id = 0" +
           " WHERE id = @id"
@@ -1187,6 +1188,12 @@ async function addPSNName(result) {
       if (psnList[i].psn_id === result[n].rec_pid) {
         await Object.assign(result[n], {
           rec_name:
+            psnList[i].pname + "" + psnList[i].fname + " " + psnList[i].lname,
+        });
+      }
+      if (psnList[i].psn_id === result[n].proc_pid) {
+        await Object.assign(result[n], {
+          proc_name:
             psnList[i].pname + "" + psnList[i].fname + " " + psnList[i].lname,
         });
       }
