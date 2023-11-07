@@ -128,6 +128,47 @@ async function createDateToShow(fromDate, toDate) {
   return dateToShow;
 }
 
+async function grpChk(grpId, pool) {
+  const grpSched = await getSchedByGrpId(grpId);
+  if (grpSched.length > 1) {
+    let fromDate = "";
+    let toDate = "";
+    for (let i = 0; i < grpSched.length; i += 1) {
+      if (fromDate === "" || grpSched[i].from_date < fromDate) {
+        fromDate = grpSched[i].from_date;
+      }
+      if (toDate === "" || grpSched[i].to_date > toDate) {
+        toDate = grpSched[i].to_date;
+      }
+    }
+
+    console.log("update datetime in cbs_sched_grp");
+    await pool
+      .request()
+      .input("id", sql.VarChar, grpId)
+      .input("from_date", sql.SmallDateTime, fromDate)
+      .input("to_date", sql.SmallDateTime, toDate)
+      .query(
+        "UPDATE cbs_sched_grp" +
+          " SET from_date = @from_date," +
+          " to_date = @to_date" +
+          " WHERE id = @id"
+      );
+  } else {
+    console.log(
+      "change group status to 'Cancel' due to <2 book left in this group"
+    );
+    await pool
+      .request()
+      .input("id", sql.VarChar, grpId)
+      .query("UPDATE cbs_sched_grp SET status_id = 0 WHERE id = @id");
+    await pool
+      .request()
+      .input("grp_id", sql.VarChar, grpId)
+      .query("UPDATE cbs_sched SET grp_id = null WHERE grp_id = @grp_id");
+  }
+}
+
 async function carBook(bookData) {
   try {
     console.log(
@@ -409,6 +450,7 @@ async function reqPermit(bookData) {
       .input("car_type_id", sql.TinyInt, bookData.car_type_id)
       .input("car_id", sql.TinyInt, bookData.car_id)
       .input("dept_id", sql.VarChar, bookData.dept_id)
+      .input("note", sql.VarChar, bookData.note)
       .query(
         "UPDATE cbs_sched" +
           " SET from_date = @from_date" +
@@ -425,6 +467,7 @@ async function reqPermit(bookData) {
           ", dept_id = @dept_id" +
           ", rcv_date = GETDATE()" +
           ", status_id = 2" +
+          ", note = @note" +
           " WHERE id = @id"
       );
 
@@ -506,6 +549,7 @@ async function permitBook(bookData) {
       .input("car_type_id", sql.TinyInt, bookData.car_type_id)
       .input("car_id", sql.TinyInt, bookData.car_id)
       .input("dept_id", sql.VarChar, bookData.dept_id)
+      .input("note", sql.VarChar, bookData.note)
       .query(
         "UPDATE cbs_sched" +
           " SET from_date = @from_date" +
@@ -522,6 +566,7 @@ async function permitBook(bookData) {
           ", dept_id = @dept_id" +
           ", permit_date = GETDATE()" +
           ", status_id = 3" +
+          ", note = @note" +
           " WHERE id = @id"
       );
 
@@ -644,6 +689,7 @@ async function bypassBook(bookData) {
       .input("car_id", sql.TinyInt, bookData.car_id)
       .input("dept_id", sql.VarChar, bookData.dept_id)
       .input("rcv_pid", sql.VarChar, bookData.rcv_pid)
+      .input("note", sql.VarChar, bookData.note)
       .query(
         "UPDATE cbs_sched" +
           " SET from_date = @from_date" +
@@ -662,6 +708,7 @@ async function bypassBook(bookData) {
           ", status_id = 3" +
           ", rcv_pid = @rcv_pid" +
           ", rcv_date = GETDATE()" +
+          ", note = @note" +
           " WHERE id = @id"
       );
 
@@ -726,8 +773,13 @@ async function denyBook(bookData) {
           ", proc_date = GETDATE()" +
           ", note = @note" +
           ", status_id = 0" +
+          ", grp_id = null" +
           " WHERE id = @id"
       );
+
+    if (bookData.grp_id) {
+      await grpChk(bookData.grp_id, pool);
+    }
 
     console.log("denyBook complete");
     console.log("====================");
@@ -752,46 +804,7 @@ async function delGrpSched(bookData) {
         "UPDATE cbs_sched SET grp_id = null, status_id = 1 WHERE id = @id"
       );
 
-    const grpSched = await getSchedByGrpId(bookData.grp_id);
-    if (grpSched.length > 1) {
-      let fromDate = "";
-      let toDate = "";
-      for (let i = 0; i < grpSched.length; i += 1) {
-        if (fromDate === "" || grpSched[i].from_date < fromDate) {
-          fromDate = grpSched[i].from_date;
-        }
-        if (toDate === "" || grpSched[i].to_date > toDate) {
-          toDate = grpSched[i].to_date;
-        }
-      }
-
-      console.log("update datetime in cbs_sched_grp");
-      await pool
-        .request()
-        .input("id", sql.VarChar, bookData.grp_id)
-        .input("from_date", sql.SmallDateTime, fromDate)
-        .input("to_date", sql.SmallDateTime, toDate)
-        .query(
-          "UPDATE cbs_sched_grp" +
-            " SET from_date = @from_date," +
-            " to_date = @to_date" +
-            " WHERE id = @id"
-        );
-    } else {
-      console.log(
-        "change group status to 'Cancel' due to <2 book left in this group"
-      );
-      await pool
-        .request()
-        .input("id", sql.VarChar, bookData.grp_id)
-        .query(
-          "UPDATE cbs_sched_grp" + " SET status_id = 0" + " WHERE id = @id"
-        );
-      await pool
-        .request()
-        .input("grp_id", sql.VarChar, bookData.grp_id)
-        .query("UPDATE cbs_sched SET grp_id = null WHERE grp_id = @grp_id");
-    }
+    await grpChk(bookData.grp_id, pool);
 
     sendLineNotify({
       message:
@@ -835,6 +848,7 @@ async function savChgSched(bookData) {
       .input("car_type_id", sql.TinyInt, bookData.car_type_id)
       .input("car_id", sql.TinyInt, bookData.car_id)
       .input("dept_id", sql.VarChar, bookData.dept_id)
+      .input("note", sq.VarChar, bookData.note)
       .query(
         "UPDATE cbs_sched" +
           " SET from_date = @from_date" +
@@ -848,6 +862,7 @@ async function savChgSched(bookData) {
           ", car_type_id = @car_type_id" +
           ", car_id = @car_id" +
           ", dept_id = @dept_id" +
+          ", note = @note" +
           " WHERE id = @id"
       );
 
@@ -1647,7 +1662,9 @@ async function getNoti() {
 
     temp = await pool
       .request()
-      .query("SELECT COUNT(id) AS permitReq FROM cbs_sched WHERE status_id = 1");
+      .query(
+        "SELECT COUNT(id) AS permitReq FROM cbs_sched WHERE status_id = 1"
+      );
     await Object.assign(result, temp.recordset[0]);
     temp = await pool
       .request()
