@@ -848,7 +848,7 @@ async function savChgSched(bookData) {
       .input("car_type_id", sql.TinyInt, bookData.car_type_id)
       .input("car_id", sql.TinyInt, bookData.car_id)
       .input("dept_id", sql.VarChar, bookData.dept_id)
-      .input("note", sq.VarChar, bookData.note)
+      .input("note", sql.VarChar, bookData.note)
       .query(
         "UPDATE cbs_sched" +
           " SET from_date = @from_date" +
