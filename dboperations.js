@@ -1107,7 +1107,7 @@ async function getDriver() {
     const temp = await pool
       .request()
       .query(
-        "SELECT psn_lv_list.psn_id FROM psn_lv_list WHERE lv_id = 'CBS_DRV'"
+        "SELECT psn_lv_list.psn_id FROM psn_lv_list WHERE lv_id = 'CBS_DRV' OR lv_id = 'CBS_MGR'"
       );
     const drvList = temp.recordsets[0];
 
