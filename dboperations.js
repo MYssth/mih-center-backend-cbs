@@ -570,7 +570,16 @@ async function permitBook(bookData) {
           " WHERE id = @id"
       );
 
-    if (bookData.grp_id) {
+    const temp = await pool
+      .request()
+      .input("id", sql.VarChar, bookData.id)
+      .query(
+        "SELECT grp_id FROM cbs_sched WHERE id = @id"
+      );
+    
+    const grpId = temp.recordset[0].grp_id;
+
+    if (grpId) {
       console.log("update group sched");
       await pool
         .request()
@@ -613,12 +622,12 @@ async function permitBook(bookData) {
       bookData.from_date,
       bookData.to_date
     );
-    if (bookData.grp_id) {
+    if (grpId) {
       sendLineNotify({
         message:
           "มีการอนุมัติกลุ่มงาน" +
           "\nกลุ่มเลขที่: " +
-          bookData.grp_id +
+          grpId +
           "\nพนักงานขับรถ: " +
           bookData.drv_name +
           "\nรถที่ใช้: " +
@@ -866,7 +875,16 @@ async function savChgSched(bookData) {
           " WHERE id = @id"
       );
 
-    if (bookData.grp_id) {
+      const temp = await pool
+      .request()
+      .input("id", sql.VarChar, bookData.id)
+      .query(
+        "SELECT grp_id FROM cbs_sched WHERE id = @id"
+      );
+    
+    const grpId = temp.recordset[0].grp_id;
+
+    if (grpId) {
       console.log("update group sched");
       await pool
         .request()
@@ -1029,11 +1047,30 @@ async function getFilteredCar(fromDate, toDate, schedId) {
       .input("from_date", sql.SmallDateTime, fromDate)
       .input("to_date", sql.SmallDateTime, toDate)
       .query(
-        "SELECT id, car_id, dept_id FROM cbs_sched WHERE ((@from_date BETWEEN from_date AND to_date)" +
-          " OR" +
-          " (@to_date BETWEEN from_date AND to_date)" +
-          " OR" +
-          " (@from_date <= from_date AND @to_date >= to_date))" +
+        "SELECT id, car_id, dept_id FROM cbs_sched WHERE" +
+          " (" +
+            " (" +
+              " (" +
+                " (@from_date BETWEEN from_date AND to_date)" +
+                " OR" +
+                " (@to_date BETWEEN from_date AND to_date)" +
+                " OR" +
+                " (@from_date <= from_date AND @to_date >= to_date)" +
+              " )" +
+              " AND (arr_date IS NULL OR arr_date >= to_date)" +
+            " )" +
+            " OR" +
+            " (" +
+              " (" +
+                " (@from_date BETWEEN from_date AND arr_date)" +
+                " OR" +
+                " (@to_date BETWEEN from_date AND arr_date)" +
+                " OR" +
+                " (@from_date <= from_date AND @to_date >= arr_date)" +
+              " ) " +
+              " AND (arr_date < to_date)" +
+            " )" +
+          " )" +
           " AND car_id IS NOT NULL AND status_id <> 0"
       );
     const busyCar = busyCarQuery.recordsets[0];
