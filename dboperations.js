@@ -67,24 +67,30 @@ async function getAllPSNData() {
   return result;
 }
 
-async function sendLineNotify(sendMessage) {
-  console.log("send line notify");
-  fetch(process.env.lineNotify, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Bearer ${process.env.CBS_lineToken}`,
-    },
-    body: new URLSearchParams(sendMessage),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(data);
-      console.log("send data to line complete");
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
+async function sendNoti(message) {
+  try {
+    pool = await sql.connect(config);
+    const result = await pool.request().query(`
+      SELECT token_key, chat_id 
+      FROM param_config 
+      WHERE app = 'CBS_TELEGRAM'
+    `);
+
+    if (!result.recordset.length)
+      throw new Error("No token_key and chat_id found");
+
+    const { token_key, chat_id } = result.recordset[0];
+    const telegramURL = `https://api.telegram.org/bot${encodeURIComponent(
+      token_key
+    )}/sendMessage?chat_id=${encodeURIComponent(
+      chat_id
+    )}&text=${encodeURIComponent(message)}`;
+    const response = await fetch(telegramURL, { method: "GET" });
+    return response.json();
+  } catch (error) {
+    console.error("Error:", error.message);
+    throw error;
+  }
 }
 
 async function createDateToShow(fromDate, toDate) {
@@ -215,8 +221,7 @@ async function carBook(bookData) {
       bookData.to_date
     );
 
-    sendLineNotify({
-      message:
+    sendNoti(
         "มีการขอใช้รถใหม่" +
         "\nเลขที่: " +
         schedId +
@@ -229,8 +234,8 @@ async function carBook(bookData) {
         "\nเวลาเดินทาง: " +
         dateToShow +
         "\nรายละเอียด: " +
-        bookData.detail,
-    });
+        bookData.detail
+    );
 
     console.log("carBook complete");
     console.log("====================");
@@ -320,8 +325,7 @@ async function mergeBook(mergeBookData) {
     }
     let dateToShow = await createDateToShow(fromDate, toDate);
 
-    sendLineNotify({
-      message:
+    sendNoti(
         "มีการรวมคำขอใช้รถใหม่" +
         "\nกลุ่มงานเลขที่: " +
         schedGrpId +
@@ -330,8 +334,8 @@ async function mergeBook(mergeBookData) {
         "\nเวลาเดินทาง: " +
         dateToShow +
         "\nรายการคำขอใช้รถ: " +
-        idList,
-    });
+        idList
+      );
 
     console.log("mergeBook complete");
     console.log("====================");
@@ -405,8 +409,7 @@ async function mergeBookAdd(mergeBookData) {
 
     let dateToShow = await createDateToShow(fromDate, toDate);
 
-    sendLineNotify({
-      message:
+    sendNoti(
         "มีการเพิ่มคำขอใช้รถเข้ากลุ่มงาน" +
         "\nกลุ่มงานเลขที่: " +
         mergeBookData.sched_grp.id +
@@ -415,8 +418,8 @@ async function mergeBookAdd(mergeBookData) {
         "\nผู้รวม: " +
         mergeBookData.req_name +
         "\nเวลาเดินทาง: " +
-        dateToShow,
-    });
+        dateToShow
+    );
 
     console.log("mergeBookAdd complete");
     console.log("====================");
@@ -623,8 +626,7 @@ async function permitBook(bookData) {
       bookData.to_date
     );
     if (grpId) {
-      sendLineNotify({
-        message:
+      sendNoti(
           "มีการอนุมัติกลุ่มงาน" +
           "\nกลุ่มเลขที่: " +
           grpId +
@@ -633,11 +635,10 @@ async function permitBook(bookData) {
           "\nรถที่ใช้: " +
           bookData.car_name +
           "\nเวลาเดินทาง: " +
-          dateToShow,
-      });
+          dateToShow
+      );
     } else {
-      sendLineNotify({
-        message:
+      sendNoti(
           "มีการอนุมัติงาน" +
           "\nเลขที่: " +
           bookData.id +
@@ -661,8 +662,8 @@ async function permitBook(bookData) {
           "\nเบอร์โทรติดต่อ: " +
           (bookData.tel_no ? bookData.tel_no : "ไม่ได้ระบุ") +
           "\nรายละเอียด: " +
-          bookData.detail,
-      });
+          bookData.detail
+      );
     }
 
     console.log("permitBook complete");
@@ -726,8 +727,7 @@ async function bypassBook(bookData) {
       bookData.to_date
     );
 
-    sendLineNotify({
-      message:
+    sendNoti(
         "มีการอนุมัติงาน" +
         "\nเลขที่: " +
         bookData.id +
@@ -751,8 +751,8 @@ async function bypassBook(bookData) {
         "\nเบอร์โทรติดต่อ: " +
         (bookData.tel_no ? bookData.tel_no : "ไม่ได้ระบุ") +
         "\nรายละเอียด: " +
-        bookData.detail,
-    });
+        bookData.detail
+    );
 
     console.log("bypassBook complete");
     console.log("====================");
@@ -815,16 +815,15 @@ async function delGrpSched(bookData) {
 
     await grpChk(bookData.grp_id, pool);
 
-    sendLineNotify({
-      message:
+    sendNoti(
         "มีการลบคำขอใช้รถออกจากกลุ่มงาน" +
         "\nกลุ่มงานเลขที่: " +
         bookData.grp_id +
         "\nเลขที่คำขอใช้รถที่ลบ: " +
         bookData.id +
         "\nผู้ลบ: " +
-        bookData.req_name,
-    });
+        bookData.req_name
+    );
 
     console.log("delGrpSched complete");
     console.log("====================");
